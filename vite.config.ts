@@ -1,6 +1,7 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import fs from 'fs';
 import { defineConfig, loadEnv } from 'vite';
 
 // ─── Sitemap + robots plugin (بدون dependencies إضافية) ───
@@ -23,7 +24,7 @@ function seoPlugin(siteUrl: string) {
   return {
     name: 'seo-plugin',
     closeBundle() {
-      const fs   = require('fs');
+      
       const dist = path.resolve(__dirname, 'dist');
       if (!fs.existsSync(dist)) return;
 
