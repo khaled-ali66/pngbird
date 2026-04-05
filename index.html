@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PngBird</title>
+    <script>
+      // Polyfill to prevent errors when third-party libraries try to overwrite fetch
+      try {
+        const originalFetch = window.fetch;
+        Object.defineProperty(window, 'fetch', {
+          configurable: true,
+          enumerable: true,
+          get() {
+            return originalFetch;
+          },
+          set(newFetch) {
+            console.warn('Ignored attempt to overwrite window.fetch');
+          }
+        });
+      } catch (e) {
+        console.error('Failed to polyfill window.fetch:', e);
+      }
+      try {
+        const originalFetch = window.fetch;
+        Object.defineProperty(Window.prototype, 'fetch', {
+          configurable: true,
+          enumerable: true,
+          get() {
+            return originalFetch;
+          },
+          set(newFetch) {
+            console.warn('Ignored attempt to overwrite Window.prototype.fetch');
+          }
+        });
+      } catch (e) {
+        console.error('Failed to polyfill Window.prototype.fetch:', e);
+      }
+      try {
+        if (typeof globalThis !== 'undefined') {
+          const originalFetch = globalThis.fetch;
+          Object.defineProperty(globalThis, 'fetch', {
+            configurable: true,
+            enumerable: true,
+            get() {
+              return originalFetch;
+            },
+            set(newFetch) {
+              console.warn('Ignored attempt to overwrite globalThis.fetch');
+            }
+          });
+        }
+      } catch (e) {
+        console.error('Failed to polyfill globalThis.fetch:', e);
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script src="https://apis.google.com/js/platform.js" async defer></script>
+    <script type="text/javascript" src="https://www.dropbox.com/static/api/2/dropins.js" id="dropboxjs" data-app-key="YOUR_APP_KEY"></script>
+  </body>
+</html>
+

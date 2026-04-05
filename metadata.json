@@ -1,0 +1,5 @@
+{
+  "name": "PngBird",
+  "description": "A powerful AI-driven image generation and background removal tool with true transparency, powered by Supabase and Gemini AI.",
+  "requestFramePermissions": []
+}
