@@ -284,12 +284,28 @@ export default function GalleryDetail() {
     };
   }, []);
 
-  const handleDownload = () => {
-    if (!image) return;
+ const handleDownload = async () => {
+  if (!image) return;
+  try {
+    const response = await fetch(image.imageUrl);
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = image.imageUrl; a.download = `${image.slug}.png`; a.target = '_blank'; a.click();
+    a.href = url;
+    a.download = `${image.slug}.png`;
+    a.click();
+    URL.revokeObjectURL(url);
     toast.success('Download started!');
-  };
+  } catch {
+    // fallback لو الـ fetch فشل
+    const a = document.createElement('a');
+    a.href = image.imageUrl;
+    a.download = `${image.slug}.png`;
+    a.target = '_blank';
+    a.click();
+    toast.success('Download started!');
+  }
+};
 
   const handleShare = async () => {
     const url = window.location.href;

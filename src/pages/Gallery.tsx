@@ -491,7 +491,7 @@ export default function Gallery() {
 
   const totalPages   = Math.ceil(totalHits / PAGE_SIZE);
   const activeCatObj = CATEGORIES.find(c => c.id === activeCategory);
-  const showHero     = !searchQuery && activeCategory === 'all' && currentPage === 1;
+  const showHero = !searchQuery && currentPage === 1;
 
   return (
     <div className="min-h-screen bg-background">
@@ -508,7 +508,10 @@ export default function Gallery() {
             aria-hidden
             style={{ background: 'hsl(var(--background) / 0.55)' }}
           />
-
+ <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[800px] aspect-square bg-yellow-500/10 blur-[100px] rounded-full pointer-events-none" />
+        <div className="absolute top-0 right-0 w-[400px] aspect-square bg-purple-500/10 blur-[100px] rounded-full pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-[400px] aspect-square bg-emerald-500/10 blur-[100px] rounded-full pointer-events-none" />
+        
           <div className="relative max-w-2xl mx-auto px-6 py-20 sm:py-28 text-center">
             <h1 className="text-5xl sm:text-6xl font-extrabold tracking-tight leading-[1.1] text-foreground mb-4">
               <span className="text-yellow-500">+1,000</span> PNGs For Free
@@ -738,7 +741,7 @@ export default function Gallery() {
                 <section className="mt-16 pt-8 border-t border-border/50">
                   <div className="grid md:grid-cols-2 gap-8">
                     <div>
-                      <h2 className="text-base font-bold mb-2">Need a custom PNG?</h2>
+                      
                       <p className="text-sm text-muted-foreground leading-relaxed mb-3">
                         Generate any PNG with AI. 10 free generations to start.
                       </p>
