@@ -13,7 +13,8 @@ interface DemoCheckoutModalProps {
   plan: {
     id: string;
     name: string;
-    price: string;
+   discountPrice: string;
+originalPrice: string;
   } | null;
 }
 
@@ -235,7 +236,7 @@ export function DemoCheckoutModal({ isOpen, onClose, plan }: DemoCheckoutModalPr
           <h2 className="text-lg font-semibold text-foreground mb-4 sm:mb-6">Order summary</h2>
           
           <div className="text-3xl sm:text-4xl font-bold text-foreground mb-6 sm:mb-8">
-            {plan.price}
+            {plan.discountPrice}
           </div>
 
           <div className="flex items-center gap-4 mb-8">
@@ -251,7 +252,7 @@ export function DemoCheckoutModal({ isOpen, onClose, plan }: DemoCheckoutModalPr
           <div className="space-y-4 text-sm">
             <div className="flex justify-between text-foreground">
               <span>Subtotal</span>
-              <span className="font-medium">{plan.price}</span>
+              <span className="font-medium">{plan.discountPrice}</span>
             </div>
             <div className="flex justify-between text-muted-foreground">
               <span>VAT</span>
@@ -259,7 +260,7 @@ export function DemoCheckoutModal({ isOpen, onClose, plan }: DemoCheckoutModalPr
             </div>
             <div className="pt-4 border-t border-border flex justify-between text-foreground font-bold text-lg">
               <span>Total</span>
-              <span>{plan.price}</span>
+              <span>{plan.discountPrice}</span>
             </div>
           </div>
         </div>

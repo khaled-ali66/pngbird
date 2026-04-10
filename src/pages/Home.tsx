@@ -51,7 +51,8 @@ export default function Home() {
         {/* Comparison Section */}
         <section className="space-y-6 md:space-y-8 relative z-10">
           <div className="text-center space-y-4 px-4">
-            <h2 className="text-2xl md:text-3xl font-bold text-foreground">The PngBird Difference</h2>
+            <h2 className="text-2xl md:text-3xl font-bold text-foreground">The 
+pngLook Difference</h2>
             <p className="text-muted-foreground max-w-xl mx-auto text-sm md:text-base">
               Stop downloading "transparent" images that actually have a baked-in checkerboard pattern. 
               Our AI extracts the true alpha channel.
@@ -78,7 +79,8 @@ export default function Home() {
               <p className="text-center text-xs md:text-sm text-muted-foreground font-medium">Other Tools: Baked-in checkerboard</p>
             </div>
 
-            {/* PngBird AI */}
+            {/* 
+pngLook AI */}
             <div className="space-y-4">
               <div className="bg-card border border-border rounded-2xl md:rounded-3xl p-4 md:p-6 aspect-square flex flex-col items-center justify-center relative overflow-hidden"
                    style={{
@@ -86,13 +88,15 @@ export default function Home() {
                      backgroundSize: '20px 20px'
                    }}>
                 <div className="absolute top-3 left-3 md:top-4 md:left-4 bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 px-2 md:px-3 py-1 rounded-full text-[10px] md:text-xs font-bold flex items-center gap-1 z-20">
-                  <CheckCircle2 className="w-3 h-3" /> PngBird AI
+                  <CheckCircle2 className="w-3 h-3" /> 
+pngLook AI
                 </div>
                 <div className="w-48 h-48 md:w-64 md:h-64 relative z-10 flex items-center justify-center">
                   <Bird className="w-24 h-24 md:w-32 md:h-32 text-yellow-500 drop-shadow-[0_0_30px_rgba(234,179,8,0.5)]" strokeWidth={1.5} />
                 </div>
               </div>
-              <p className="text-center text-xs md:text-sm text-muted-foreground font-medium">PngBird: True alpha transparency</p>
+              <p className="text-center text-xs md:text-sm text-muted-foreground font-medium">
+pngLook: True alpha transparency</p>
             </div>
           </div>
         </section>
@@ -243,7 +247,8 @@ export default function Home() {
           <div className="max-w-6xl mx-auto px-4">
             <div className="text-center space-y-4 mb-12">
               <h2 className="text-3xl md:text-4xl font-bold text-foreground">Frequently Asked Questions</h2>
-              <p className="text-muted-foreground text-lg max-w-2xl mx-auto">Everything you need to know about PngBird.</p>
+              <p className="text-muted-foreground text-lg max-w-2xl mx-auto">Everything you need to know about 
+pngLook.</p>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">

@@ -419,7 +419,7 @@ export default function GalleryDetail() {
           <aside className="space-y-5">
             <div>
               <h1 className="text-2xl font-bold text-foreground leading-tight mb-2">{image.title}</h1>
-              <p className="text-sm text-muted-foreground leading-relaxed">{image.description}</p>
+             
             </div>
 
             <div>
@@ -458,12 +458,7 @@ export default function GalleryDetail() {
               ))}
             </div>
 
-            <div className="rounded-2xl border border-green-500/20 bg-green-500/5 p-4">
-              <p className="text-sm font-semibold text-green-600 dark:text-green-400 mb-1">✓ Free to Use</p>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                Free for commercial and personal use. No attribution required.
-              </p>
-            </div>
+            
 
             <div className="rounded-2xl border border-yellow-500/20 bg-gradient-to-br from-yellow-500/10 to-transparent p-5 text-center">
               <p className="text-sm font-semibold text-foreground mb-1">Need something custom?</p>

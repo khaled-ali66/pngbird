@@ -207,15 +207,7 @@ export function CustomLoginModal({ isOpen, onClose }: CustomLoginModalProps) {
         )}
 
         {/* لينك الأدمن المخفي */}
-        <div className="mt-6 text-center">
-          <Link
-            to="/admin"
-            onClick={onClose}
-            className="text-[11px] text-muted-foreground/40 hover:text-muted-foreground transition-colors"
-          >
-            Admin access
-          </Link>
-        </div>
+        
 
       </div>
     </div>

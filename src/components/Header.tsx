@@ -22,7 +22,8 @@ export function Header({ onLoginClick, onMobileMenuToggle }: { onLoginClick?: ()
           <div className="w-8 h-8 bg-card rounded-lg flex items-center justify-center border border-border">
             <Bird className="w-5 h-5 text-yellow-500" />
           </div>
-          <span className="font-bold text-foreground text-lg tracking-tight">PngBird</span>
+          <span className="font-bold text-foreground text-lg tracking-tight">
+pngLook</span>
         </Link>
 
         <div className="flex-1 flex items-center justify-end gap-3 min-w-0">

@@ -95,7 +95,7 @@ export default function Dashboard() {
             <h1 className="text-3xl md:text-4xl font-bold tracking-tight">User Dashboard</h1>
           </div>
           <p className="text-muted-foreground text-base md:text-lg">
-            Welcome back, {user?.firstName || user?.primaryEmailAddress?.emailAddress || 'User'}. Here is your usage and recent history.
+            Welcome back, {user?.firstName || user?.primaryEmailAddress?.emailAddress?.split('@')[0] || 'User'}. Here is your usage and recent history.
           </p>
         </header>
 

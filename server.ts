@@ -18,7 +18,7 @@ const supabaseAdmin = createClient(
 
 async function startServer() {
   const app = express();
-  const PORT = 3017;
+  const PORT = 3015;
 
   app.use(express.json());
 

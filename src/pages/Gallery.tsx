@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Search, Download, Wand2, X, ChevronRight,
@@ -8,6 +8,35 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+
+// ─────────────────────────────────────────────
+// LRU Cache — بيحتفظ بأحدث 50 صفحة بس ويمسح القديم تلقائياً
+// بدل الـ plain object اللي كان بيكبر للأبد
+// ─────────────────────────────────────────────
+class LRUCache<K, V> {
+  private max: number;
+  private cache = new Map<K, V>();
+
+  constructor(max = 50) { this.max = max; }
+
+  get(key: K): V | undefined {
+    if (!this.cache.has(key)) return undefined;
+    const val = this.cache.get(key)!;
+    this.cache.delete(key);
+    this.cache.set(key, val);
+    return val;
+  }
+
+  set(key: K, value: V): void {
+    if (this.cache.has(key)) this.cache.delete(key);
+    else if (this.cache.size >= this.max) {
+      this.cache.delete(this.cache.keys().next().value);
+    }
+    this.cache.set(key, value);
+  }
+
+  has(key: K): boolean { return this.cache.has(key); }
+}
 
 interface GalleryImage {
   id: string;
@@ -24,9 +53,6 @@ interface GalleryImage {
   source: 'supabase' | 'api';
 }
 
-// ─────────────────────────────────────────────
-// CATEGORIES — 3 queries لكل كاتيجوري
-// ─────────────────────────────────────────────
 const CATEGORIES = [
   { id: 'all',        label: 'All',        icon: '✦', queries: [] },
   { id: 'flowers',    label: 'Flowers',    icon: '🌸', queries: ['flowers transparent', 'flower bouquet', 'floral png'] },
@@ -40,180 +66,148 @@ const CATEGORIES = [
   { id: 'christmas',  label: 'Christmas',  icon: '🎄', queries: ['christmas transparent', 'holiday png', 'xmas cutout'] },
 ];
 
-const CAT_LIST  = CATEGORIES.filter(c => c.id !== 'all');
-const PAGE_SIZE = 40;
-const PER_PAGE  = 200;
-const API_KEY   = import.meta.env.VITE_PIXABAY_KEY || '';
+const POPULAR_TAGS = ['Easter', 'Spring', "St. Patrick's Day", 'Eid Al Fitr', 'eid mubarak', 'idul fitri', 'location', 'coffee'];
 
-// ─────────────────────────────────────────────
-// CACHE — بيمنع إعادة الـ fetch
-// ─────────────────────────────────────────────
-const pageCache: Record<string, GalleryImage[]> = {};
+const CAT_LIST        = CATEGORIES.filter(c => c.id !== 'all');
+const PAGE_SIZE       = 40;
+const PER_PAGE        = 200;
+const CARDS_PER_QUERY = 2;
+const GALLERY_PER_API = Math.floor(PER_PAGE / (CARDS_PER_QUERY * 3));
+const API_KEY         = import.meta.env.VITE_PIXABAY_KEY || '';
+const BATCH_SIZE      = 3; // ✅ عدد الـ requests المتزامنة في كل مرة
 
-// ─────────────────────────────────────────────
-// SUPABASE
-// ─────────────────────────────────────────────
+// ✅ LRU Cache بدل plain object
+const pageCache = new LRUCache<string, GalleryImage[]>(50);
+
 async function fetchSupabaseImages(category?: string, search?: string): Promise<GalleryImage[]> {
   try {
-    let q = supabase
-      .from('gallery_images')
-      .select('*')
-      .eq('is_active', true)
-      .order('created_at', { ascending: false });
-
+    let q = supabase.from('gallery_images').select('*').eq('is_active', true).order('created_at', { ascending: false });
     if (category && category !== 'all') q = q.eq('category', category);
     if (search) q = q.or(`title.ilike.%${search}%,tags.cs.{${search}}`);
-
     const { data, error } = await q.limit(200);
     if (error) return [];
-
     return (data || []).map(row => ({
-      id:          `sb-${row.id}`,
-      slug:        `${row.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}-${row.id.slice(0, 8)}`,
-      title:       row.title,
+      id: `sb-${row.id}`,
+      slug: `${row.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}-${row.id.slice(0, 8)}`,
+      title: row.title,
       description: row.description || `Free transparent ${row.title} PNG.`,
-      tags:        row.tags || [],
-      category:    row.category,
-      imageUrl:    row.image_url,
-      thumbUrl:    row.thumb_url || row.image_url,
-      width:       row.width  || 800,
-      height:      row.height || 800,
-      downloads:   0,
-      source:      'supabase' as const,
+      tags: row.tags || [],
+      category: row.category,
+      imageUrl: row.image_url,
+      thumbUrl: row.thumb_url || row.image_url,
+      width: row.width || 800,
+      height: row.height || 800,
+      downloads: 0,
+      source: 'supabase' as const,
     }));
   } catch { return []; }
 }
 
-// ─────────────────────────────────────────────
-// API FETCH
-// ─────────────────────────────────────────────
 function hitToImage(hit: any, category: string): GalleryImage {
-  const tags     = hit.tags ? hit.tags.split(',').map((t: string) => t.trim().toLowerCase()).filter(Boolean) : [];
+  const tags = hit.tags ? hit.tags.split(',').map((t: string) => t.trim().toLowerCase()).filter(Boolean) : [];
   const firstTag = tags[0] || category || 'png';
-  const title    = firstTag.charAt(0).toUpperCase() + firstTag.slice(1) + ' PNG';
+  const title = firstTag.charAt(0).toUpperCase() + firstTag.slice(1) + ' PNG';
   return {
-    id:          `px-${hit.id}`,
-    slug:        `${firstTag.replace(/\s+/g, '-')}-png-${hit.id}`,
+    id: `px-${hit.id}`,
+    slug: `${firstTag.replace(/\s+/g, '-')}-png-${hit.id}`,
     title,
     description: `Free transparent ${title} for personal and commercial use.`,
-    tags:        tags.slice(0, 6),
+    tags: tags.slice(0, 6),
     category,
-    imageUrl:    hit.largeImageURL || hit.webformatURL,
-    thumbUrl:    hit.webformatURL,
-    width:       hit.imageWidth  || 800,
-    height:      hit.imageHeight || 800,
-    downloads:   hit.downloads   || 0,
-    source:      'api' as const,
+    imageUrl: hit.largeImageURL || hit.webformatURL,
+    thumbUrl: hit.webformatURL,
+    width: hit.imageWidth || 800,
+    height: hit.imageHeight || 800,
+    downloads: hit.downloads || 0,
+    source: 'api' as const,
   };
 }
 
-async function fetchApiPage(query: string, category: string, page: number): Promise<GalleryImage[]> {
+async function fetchApiPage(query: string, category: string, page: number, signal?: AbortSignal): Promise<GalleryImage[]> {
   const key = `${query}|${category}|${page}`;
-  if (pageCache[key]) return pageCache[key];
+
+  // ✅ استخدم LRU بدل plain object
+  const cached = pageCache.get(key);
+  if (cached) return cached;
 
   const params = new URLSearchParams({
-    key:        API_KEY,
-    q:          query || 'transparent png',
-    image_type: 'photo',
-    colors:     'transparent',
-    safesearch: 'true',
-    per_page:   String(PER_PAGE),
-    page:       String(page),
-    order:      'popular',
+    key: API_KEY, q: query || 'transparent png', image_type: 'photo',
+    colors: 'transparent', safesearch: 'true',
+    per_page: String(PER_PAGE), page: String(page), order: 'popular',
   });
-
   try {
-    const res  = await fetch(`https://pixabay.com/api/?${params}`);
+    const res = await fetch(`https://pixabay.com/api/?${params}`, { signal });
     if (!res.ok) return [];
     const data = await res.json();
     const imgs = (data.hits || []).map((h: any) => hitToImage(h, category));
-    pageCache[key] = imgs;
+    pageCache.set(key, imgs); // ✅ LRU.set
     return imgs;
-  } catch { return []; }
+  } catch (err: any) {
+    if (err?.name === 'AbortError') return [];
+    return [];
+  }
 }
 
-// ─────────────────────────────────────────────
-// PROGRESSIVE MIXED PAGE
-//
-// المرحلة 1 (سريعة): 3 كاتيجوريز فقط = 3 requests → اعرض فوراً
-// المرحلة 2 (خلفية): باقي الـ 24 request → أضف للـ grid تدريجياً
-// ─────────────────────────────────────────────
-const CARDS_PER_QUERY   = 2;
-const GALLERY_PER_API   = Math.floor(PER_PAGE / (CARDS_PER_QUERY * 3));
-
-// Priority cats — بتظهر أول (أشهر كاتيجوريز)
-const PRIORITY_CATS = ['flowers', 'animals', 'food', 'nature', 'objects'];
-
+// ✅ النسخة المحسّنة — batch بحجم 3 بدل 27 request متزامن
 async function fetchMixedPageProgressive(
   galleryPage: number,
-  onPartialUpdate: (imgs: GalleryImage[]) => void
+  onPartialUpdate: (imgs: GalleryImage[]) => void,
+  signal?: AbortSignal
 ): Promise<GalleryImage[]> {
   const apiPage = Math.ceil(galleryPage / GALLERY_PER_API);
   const offset  = ((galleryPage - 1) % GALLERY_PER_API) * (CARDS_PER_QUERY * 3);
-
   const seen    = new Set<string>();
   const allImgs: GalleryImage[] = [];
 
-  const addImages = (newImgs: GalleryImage[]) => {
-    newImgs.forEach(img => {
-      if (!seen.has(img.id)) { seen.add(img.id); allImgs.push(img); }
-    });
-  };
-
-  // المرحلة 1: Priority cats — 5 كاتيجوريز × 1 query = 5 requests
-  const priorityCats = CAT_LIST.filter(c => PRIORITY_CATS.includes(c.id));
-  const phase1 = await Promise.all(
-    priorityCats.map(cat => fetchApiPage(cat.queries[0], cat.id, apiPage))
-  );
-
-  phase1.forEach((catImgs, ci) => {
+  const addImages = (catImgs: GalleryImage[]) => {
     for (let i = 0; i < CARDS_PER_QUERY; i++) {
       const img = catImgs[offset + i];
       if (img && !seen.has(img.id)) { seen.add(img.id); allImgs.push(img); }
     }
-  });
+  };
 
-  // اعرض الـ 10 صور الأولى فوراً
-  if (allImgs.length > 0) onPartialUpdate([...allImgs]);
+  if (signal?.aborted) return [];
 
-  // المرحلة 2: باقي الـ cats + queries الإضافية — في الخلفية
-  const remainingFetches: Promise<void>[] = [];
+  // ✅ Phase 1: batch بحجم BATCH_SIZE بدل كل الـ categories مرة وحدة
+  for (let i = 0; i < CAT_LIST.length; i += BATCH_SIZE) {
+    if (signal?.aborted) return allImgs.slice(0, PAGE_SIZE);
+    const batch = CAT_LIST.slice(i, i + BATCH_SIZE);
+    const results = await Promise.all(
+      batch.map(cat => fetchApiPage(cat.queries[0], cat.id, apiPage, signal))
+    );
+    results.forEach(addImages);
+    if (!signal?.aborted) onPartialUpdate([...allImgs]);
+  }
 
-  CAT_LIST.forEach(cat => {
-    const startQueryIdx = PRIORITY_CATS.includes(cat.id) ? 1 : 0; // الأولى اتحملت بالفعل
-    cat.queries.slice(startQueryIdx).forEach(query => {
-      const p = fetchApiPage(query, cat.id, apiPage).then(catImgs => {
-        for (let i = 0; i < CARDS_PER_QUERY; i++) {
-          const img = catImgs[offset + i];
-          if (img && !seen.has(img.id)) { seen.add(img.id); allImgs.push(img); }
-        }
-        // أبلّغ بكل صور جديدة بتتضاف
-        onPartialUpdate([...allImgs]);
-      });
-      remainingFetches.push(p);
-    });
-  });
+  // ✅ Phase 2: الـ extra queries كمان بالـ batch
+  const extraQueries = CAT_LIST.flatMap(cat =>
+    cat.queries.slice(1).map(query => ({ query, catId: cat.id }))
+  );
 
-  // استنى كل الـ requests تخلص (بس الـ UI بيتحدث تدريجياً)
-  await Promise.allSettled(remainingFetches);
+  for (let i = 0; i < extraQueries.length; i += BATCH_SIZE) {
+    if (signal?.aborted) break;
+    const batch = extraQueries.slice(i, i + BATCH_SIZE);
+    await Promise.all(
+      batch.map(({ query, catId }) =>
+        fetchApiPage(query, catId, apiPage, signal).then(imgs => {
+          if (!signal?.aborted) { addImages(imgs); onPartialUpdate([...allImgs]); }
+        })
+      )
+    );
+  }
 
   return allImgs.slice(0, PAGE_SIZE);
 }
 
-// ─────────────────────────────────────────────
-// CATEGORY PAGE
-// ─────────────────────────────────────────────
-async function fetchCategoryPage(catId: string, galleryPage: number): Promise<GalleryImage[]> {
+async function fetchCategoryPage(catId: string, galleryPage: number, signal?: AbortSignal): Promise<GalleryImage[]> {
   const cat = CATEGORIES.find(c => c.id === catId);
   if (!cat?.queries.length) return [];
-
   const PAGES_PER_QUERY = Math.ceil(500 / PAGE_SIZE);
   const queryIdx  = Math.min(Math.floor((galleryPage - 1) / PAGES_PER_QUERY), cat.queries.length - 1);
   const localPage = ((galleryPage - 1) % PAGES_PER_QUERY) + 1;
   const apiPage   = Math.ceil((localPage * PAGE_SIZE) / PER_PAGE);
   const offset    = ((localPage - 1) * PAGE_SIZE) % PER_PAGE;
-
-  const imgs = await fetchApiPage(cat.queries[queryIdx], catId, apiPage);
+  const imgs = await fetchApiPage(cat.queries[queryIdx], catId, apiPage, signal);
   return imgs.slice(offset, offset + PAGE_SIZE);
 }
 
@@ -222,9 +216,7 @@ function mergeImages(supabaseImgs: GalleryImage[], apiImgs: GalleryImage[]): Gal
   return [...supabaseImgs, ...apiImgs.filter(i => !seen.has(i.id))];
 }
 
-// ─────────────────────────────────────────────
-// UI
-// ─────────────────────────────────────────────
+// ─── UI helpers ──────────────────────────────
 function CheckerBg() {
   return (
     <div className="absolute inset-0" style={{
@@ -243,14 +235,20 @@ function CheckerBg() {
 const ImageCard = React.memo(function ImageCard({ image, index }: { image: GalleryImage; index: number }) {
   const [loaded,  setLoaded]  = useState(false);
   const [hovered, setHovered] = useState(false);
-  const navigate  = useNavigate();
+  const navigate    = useNavigate();
   const isAboveFold = index < 10;
 
-  const handleDownload = (e: React.MouseEvent) => {
+  const handleDownload = async (e: React.MouseEvent) => {
     e.preventDefault(); e.stopPropagation();
-    const a = document.createElement('a');
-    a.href = image.imageUrl; a.download = `${image.slug}.png`; a.target = '_blank'; a.click();
-    toast.success('Download started!');
+    try {
+      const res  = await fetch(image.imageUrl);
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url; a.download = `${image.slug}.png`; a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Download started!');
+    } catch { toast.error('Download failed'); }
   };
 
   return (
@@ -292,9 +290,7 @@ const ImageCard = React.memo(function ImageCard({ image, index }: { image: Galle
           </Link>
         </div>
         {image.source === 'supabase' && (
-          <div className="absolute top-2 left-2 z-20 px-2 py-0.5 rounded-full bg-yellow-400/90 text-black text-[9px] font-bold">
-            ✦ Featured
-          </div>
+          <div className="absolute top-2 left-2 z-20 px-2 py-0.5 rounded-full bg-yellow-400/90 text-black text-[9px] font-bold">✦ Featured</div>
         )}
         {image.downloads > 0 && (
           <div className="absolute top-2 right-2 z-20 px-2 py-0.5 rounded-full bg-black/60 text-white/70 text-[10px] font-medium">
@@ -356,14 +352,46 @@ export default function Gallery() {
   const [totalHits,  setTotalHits]  = useState(0);
   const [loading,    setLoading]    = useState(true);
 
-  const abortRef    = useRef<AbortController | null>(null);
-  const pageKeyRef  = useRef(''); // لمنع state updates قديمة تلوّث الـ UI
+  const abortRef      = useRef<AbortController | null>(null);
+  const pageKeyRef    = useRef('');
+
+  // ✅ Smart prefetch refs
+  const prefetchedRef = useRef(new Set<string>());
+  const lastCardRef   = useRef<HTMLDivElement>(null);
+
+  // ✅ Prefetch الصفحة الجاية بس لما المستخدم يوصل لآخر الصفحة الحالية
+  const prefetchNextPage = useCallback(() => {
+    const nextPage = currentPage + 1;
+    const key = `${activeCategory}|${searchQuery}|${nextPage}`;
+    if (prefetchedRef.current.has(key)) return;
+    prefetchedRef.current.add(key);
+
+    if (activeCategory === 'all' && !searchQuery) {
+      fetchMixedPageProgressive(nextPage, () => {});
+    } else if (activeCategory !== 'all' && !searchQuery) {
+      fetchCategoryPage(activeCategory, nextPage);
+    }
+    // search prefetch مش ضروري لأن الـ results محدودة
+  }, [currentPage, activeCategory, searchQuery]);
+
+  // ✅ Intersection Observer على آخر card
+  useEffect(() => {
+    if (!lastCardRef.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) prefetchNextPage(); },
+      { rootMargin: '400px' }
+    );
+    observer.observe(lastCardRef.current);
+    return () => observer.disconnect();
+  }, [images, prefetchNextPage]);
 
   useEffect(() => {
     if (!API_KEY) { setLoading(false); return; }
 
     abortRef.current?.abort();
-    abortRef.current = new AbortController();
+    const controller = new AbortController();
+    abortRef.current  = controller;
+    const { signal }  = controller;
 
     const pageKey = `${searchQuery}|${activeCategory}|${currentPage}`;
     pageKeyRef.current = pageKey;
@@ -377,58 +405,54 @@ export default function Gallery() {
     );
 
     if (searchQuery) {
-      Promise.all([sbPromise, fetchApiPage(searchQuery, 'search', currentPage)]).then(([sb, api]) => {
-        if (pageKeyRef.current !== pageKey) return;
+      Promise.all([sbPromise, fetchApiPage(searchQuery, 'search', currentPage, signal)]).then(([sb, api]) => {
+        if (pageKeyRef.current !== pageKey || signal.aborted) return;
         setImages(mergeImages(sb, api).slice(0, PAGE_SIZE));
         setTotalHits(500);
         setLoading(false);
       });
-      return;
+      return () => controller.abort();
     }
 
     if (activeCategory === 'all') {
+      setTotalHits(13500);
       sbPromise.then(sb => {
-        // أضف Supabase أول لو في صفحة 1
         if (currentPage === 1 && sb.length > 0 && pageKeyRef.current === pageKey) {
           setImages(sb.slice(0, PAGE_SIZE));
           setLoading(false);
         }
-
         fetchMixedPageProgressive(currentPage, (partialImgs) => {
-          if (pageKeyRef.current !== pageKey) return;
+          if (pageKeyRef.current !== pageKey || signal.aborted) return;
           const merged = currentPage === 1
             ? mergeImages(sb, partialImgs).slice(0, PAGE_SIZE)
             : partialImgs.slice(0, PAGE_SIZE);
           setImages(merged);
-          setLoading(false); // اظهر أول ما يجي أي صورة
-        });
+          setLoading(false);
+        }, signal);
+        // ✅ حذفنا الـ prefetch التلقائي من هنا — بقى يتعمل بالـ IntersectionObserver
       });
-
-      setTotalHits(13500);
-
-      // Prefetch الصفحة الجاية
-      setTimeout(() => fetchMixedPageProgressive(currentPage + 1, () => {}), 1000);
-
-    } else {
-      Promise.all([sbPromise, fetchCategoryPage(activeCategory, currentPage)]).then(([sb, api]) => {
-        if (pageKeyRef.current !== pageKey) return;
-        const final = currentPage === 1 ? mergeImages(sb, api).slice(0, PAGE_SIZE) : api;
-        setImages(final);
-        setTotalHits(1500 + sb.length);
-        setLoading(false);
-        setTimeout(() => fetchCategoryPage(activeCategory, currentPage + 1), 500);
-      });
+      return () => controller.abort();
     }
+
+    Promise.all([sbPromise, fetchCategoryPage(activeCategory, currentPage, signal)]).then(([sb, api]) => {
+      if (pageKeyRef.current !== pageKey || signal.aborted) return;
+      const final = currentPage === 1 ? mergeImages(sb, api).slice(0, PAGE_SIZE) : api;
+      setImages(final);
+      setTotalHits(1500 + sb.length);
+      setLoading(false);
+      // ✅ حذفنا الـ prefetch التلقائي من هنا كمان
+    });
+
+    return () => controller.abort();
   }, [searchQuery, activeCategory, currentPage]);
 
-  // SEO
   useEffect(() => {
     const catLabel = CATEGORIES.find(c => c.id === activeCategory)?.label || 'All';
     document.title = searchQuery
-      ? `"${searchQuery}" PNG - Free Download | PngBird`
+      ? `"${searchQuery}" PNG - Free Download | PngLook`
       : activeCategory !== 'all'
-        ? `Free ${catLabel} PNG Images | PngBird`
-        : 'Free PNG Images Gallery — 10,000+ Transparent PNGs | PngBird';
+        ? `Free ${catLabel} PNG Images | PngLook`
+        : 'Free PNG Images Gallery — 10,000+ Transparent PNGs | PngLook';
     let meta = document.querySelector('meta[name="description"]') as HTMLMetaElement | null;
     if (!meta) { meta = document.createElement('meta') as HTMLMetaElement; meta.setAttribute('name', 'description'); document.head.appendChild(meta); }
     meta.content = `Browse 10,000+ free transparent PNG images. Free for commercial use, no attribution needed.`;
@@ -467,63 +491,121 @@ export default function Gallery() {
 
   const totalPages   = Math.ceil(totalHits / PAGE_SIZE);
   const activeCatObj = CATEGORIES.find(c => c.id === activeCategory);
+  const showHero     = !searchQuery && activeCategory === 'all' && currentPage === 1;
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="border-b border-border/50 bg-gradient-to-b from-muted/30 to-background">
-        <div className="max-w-7xl mx-auto px-4 py-10 sm:py-14">
 
-          <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-muted-foreground mb-5">
-            <Link to="/" className="hover:text-foreground transition-colors">Home</Link>
-            <ChevronRight className="w-3 h-3" />
-            {activeCategory !== 'all' ? (
-              <>
-                <Link to="/gallery" className="hover:text-foreground">Gallery</Link>
-                <ChevronRight className="w-3 h-3" />
-                <span className="text-foreground font-medium">{activeCatObj?.label} PNG</span>
-              </>
-            ) : (
-              <span className="text-foreground font-medium">Gallery</span>
-            )}
-          </nav>
+      {showHero ? (
+        <div className="relative overflow-hidden bg-background">
+          <div
+            className="absolute inset-0 pointer-events-none"
+            aria-hidden
+            style={{ background: `` }}
+          />
+          <div
+            className="absolute inset-0 pointer-events-none hidden dark:block"
+            aria-hidden
+            style={{ background: 'hsl(var(--background) / 0.55)' }}
+          />
 
-          <h1 className="text-3xl sm:text-4xl font-bold text-foreground tracking-tight mb-3">
-            {searchQuery
-              ? <>Results for <span className="text-yellow-500">"{searchQuery}"</span></>
-              : activeCategory !== 'all'
-                ? <>Free <span className="text-yellow-500">{activeCatObj?.label}</span> PNG Images</>
-                : <>Free Transparent <span className="text-yellow-500">PNG Images</span></>
-            }
-          </h1>
-          <p className="text-muted-foreground max-w-2xl text-sm leading-relaxed">
-            {loading && images.length === 0
-              ? 'Loading images...'
-              : `${totalHits.toLocaleString()}+ free PNG images. Free for personal & commercial use.`
-            }
-          </p>
+          <div className="relative max-w-2xl mx-auto px-6 py-20 sm:py-28 text-center">
+            <h1 className="text-5xl sm:text-6xl font-extrabold tracking-tight leading-[1.1] text-foreground mb-4">
+              <span className="text-yellow-500">+1,000</span> PNGs For Free
+              <br />Download
+            </h1>
+            <p className="text-muted-foreground text-base sm:text-lg leading-relaxed max-w-lg mx-auto mb-8">
+              Discover thousands of high-quality, transparent PNG images generated by our community. Perfect for your next creative project.
+            </p>
 
-          <form onSubmit={handleSearch} className="mt-6 flex gap-2 max-w-2xl" role="search">
-            <div className="relative flex-1">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+            <form onSubmit={handleSearch} className="relative mx-auto mb-7 max-w-lg" role="search">
+              <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <input
-                type="search" value={inputValue} onChange={e => setInputValue(e.target.value)}
-                placeholder="Search PNG images... flower, cat, crown, coffee..."
+                type="search"
+                value={inputValue}
+                onChange={e => setInputValue(e.target.value)}
+                placeholder="Search for transparent PNGs..."
                 aria-label="Search PNG images"
-                className="w-full pl-11 pr-10 py-3 rounded-xl border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500/50 transition-all"
+                className="w-full py-4 pl-12 pr-10 rounded-2xl border border-border bg-card/80 backdrop-blur-sm text-foreground placeholder:text-muted-foreground text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500/50 transition-all"
               />
               {inputValue && (
                 <button type="button" onClick={() => setInputValue('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                   <X className="w-4 h-4" />
                 </button>
               )}
-            </div>
-            <Button type="submit" className="bg-yellow-400 hover:bg-yellow-300 text-black font-bold rounded-xl px-5 shrink-0">Search</Button>
-            {searchQuery && <Button type="button" variant="outline" onClick={clearSearch} className="rounded-xl shrink-0">Clear</Button>}
-          </form>
-        </div>
-      </div>
+            </form>
 
+            <div className="flex flex-wrap justify-center gap-2">
+              {POPULAR_TAGS.map(tag => (
+                <button
+                  key={tag}
+                  onClick={() => { setInputValue(tag); setSearchParams({ q: tag, page: '1' }); }}
+                  className="px-4 py-1.5 rounded-full border border-border bg-card/70 backdrop-blur-sm text-foreground text-sm shadow-sm hover:border-yellow-500/60 hover:text-yellow-600 dark:hover:text-yellow-400 hover:bg-yellow-500/5 transition-all"
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="border-b border-border/50 bg-gradient-to-b from-muted/30 to-background">
+          <div className="max-w-7xl mx-auto px-4 py-10 sm:py-14">
+            <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-muted-foreground mb-5">
+              <Link to="/" className="hover:text-foreground transition-colors">Home</Link>
+              <ChevronRight className="w-3 h-3" />
+              {activeCategory !== 'all' ? (
+                <>
+                  <Link to="/gallery" className="hover:text-foreground">Gallery</Link>
+                  <ChevronRight className="w-3 h-3" />
+                  <span className="text-foreground font-medium">{activeCatObj?.label} PNG</span>
+                </>
+              ) : (
+                <span className="text-foreground font-medium">Gallery</span>
+              )}
+            </nav>
+
+            <h1 className="text-3xl sm:text-4xl font-bold text-foreground tracking-tight mb-3">
+              {searchQuery
+                ? <>Results for <span className="text-yellow-500">"{searchQuery}"</span></>
+                : activeCategory !== 'all'
+                  ? <>Free <span className="text-yellow-500">{activeCatObj?.label}</span> PNG Images</>
+                  : <>Free Transparent <span className="text-yellow-500">PNG Images</span></>
+              }
+            </h1>
+            <p className="text-muted-foreground max-w-2xl text-sm leading-relaxed">
+              {loading && images.length === 0
+                ? 'Loading images...'
+                : `${totalHits.toLocaleString()}+ free PNG images. Free for personal & commercial use.`}
+            </p>
+
+            <form onSubmit={handleSearch} className="mt-6 flex gap-2 max-w-2xl" role="search">
+              <div className="relative flex-1">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                <input
+                  type="search" value={inputValue} onChange={e => setInputValue(e.target.value)}
+                  placeholder="Search PNG images... flower, cat, crown, coffee..."
+                  aria-label="Search PNG images"
+                  className="w-full pl-11 pr-10 py-3 rounded-xl border border-border bg-background text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500/50 transition-all"
+                />
+                {inputValue && (
+                  <button type="button" onClick={() => setInputValue('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+              <Button type="submit" className="bg-yellow-400 hover:bg-yellow-300 text-black font-bold rounded-xl px-5 shrink-0">Search</Button>
+              {searchQuery && <Button type="button" variant="outline" onClick={clearSearch} className="rounded-xl shrink-0">Clear</Button>}
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════
+          GALLERY BODY
+      ══════════════════════════════════════════ */}
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex gap-8">
 
@@ -543,17 +625,6 @@ export default function Gallery() {
                   {cat.id === 'all' && <span className="ml-auto text-[10px] text-yellow-500 font-bold">10K+</span>}
                 </button>
               ))}
-              <div className="mt-6 pt-6 border-t border-border">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-3 mb-3">Popular Tags</p>
-                <div className="flex flex-wrap gap-1.5 px-3">
-                  {['transparent', 'flower', 'cat', 'coffee', 'crown', 'butterfly', 'cloud', 'rose', 'diamond', 'laptop', 'heart', 'star'].map(tag => (
-                    <button key={tag} onClick={() => { setInputValue(tag); setSearchParams({ q: tag, page: '1' }); }}
-                      className="px-2 py-0.5 rounded-full bg-muted text-muted-foreground text-[11px] hover:bg-yellow-500/10 hover:text-yellow-600 dark:hover:text-yellow-400 transition-colors">
-                      {tag}
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
           </aside>
 
@@ -583,7 +654,6 @@ export default function Gallery() {
             {!API_KEY ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3"><NoKeyWarning /></div>
             ) : loading && images.length === 0 ? (
-              // Skeleton فقط لو مفيش صور خالص — لو في صور بتتحمل بتظهر على طول
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3">
                 {Array.from({ length: PAGE_SIZE }).map((_, i) => <SkeletonCard key={i} />)}
               </div>
@@ -606,8 +676,12 @@ export default function Gallery() {
             ) : (
               <>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-3">
-                  {images.map((img, i) => <ImageCard key={img.id} image={img} index={i} />)}
-                  {/* Skeleton للصور اللي لسه بتتحمل */}
+                  {images.map((img, i) => (
+                    // ✅ ref على آخر card للـ IntersectionObserver
+                    <div key={img.id} ref={i === images.length - 1 ? lastCardRef : null}>
+                      <ImageCard image={img} index={i} />
+                    </div>
+                  ))}
                   {loading && Array.from({ length: Math.max(0, PAGE_SIZE - images.length) }).map((_, i) => (
                     <SkeletonCard key={`sk-${i}`} />
                   ))}
@@ -664,15 +738,6 @@ export default function Gallery() {
                 <section className="mt-16 pt-8 border-t border-border/50">
                   <div className="grid md:grid-cols-2 gap-8">
                     <div>
-                      <h2 className="text-base font-bold mb-2">
-                        {activeCategory !== 'all' ? `Free ${activeCatObj?.label} PNG Images` : 'About PngBird Free PNG Gallery'}
-                      </h2>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        All PNG images are free — personal and commercial use allowed, no attribution required.
-                        Transparent backgrounds ready for Photoshop, Figma, and Canva.
-                      </p>
-                    </div>
-                    <div>
                       <h2 className="text-base font-bold mb-2">Need a custom PNG?</h2>
                       <p className="text-sm text-muted-foreground leading-relaxed mb-3">
                         Generate any PNG with AI. 10 free generations to start.
@@ -680,17 +745,6 @@ export default function Gallery() {
                       <Link to="/generate" className="inline-flex items-center gap-1 text-sm text-yellow-600 dark:text-yellow-400 font-medium hover:underline">
                         Try AI Generator <ArrowRight className="w-3 h-3" />
                       </Link>
-                    </div>
-                  </div>
-                  <div className="mt-6 pt-6 border-t border-border/50">
-                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3">Browse by Category</p>
-                    <div className="flex flex-wrap gap-2">
-                      {CATEGORIES.filter(c => c.id !== 'all').map(cat => (
-                        <Link key={cat.id} to={`/gallery?cat=${cat.id}`}
-                          className="px-3 py-1.5 rounded-xl bg-muted text-muted-foreground text-xs hover:bg-yellow-500/10 hover:text-yellow-600 dark:hover:text-yellow-400 transition-colors">
-                          {cat.icon} {cat.label} PNGs
-                        </Link>
-                      ))}
                     </div>
                   </div>
                 </section>

@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { useUser, useClerk } from '@clerk/clerk-react';
 import { storage } from '../lib/storage';
 import { toast } from 'sonner';
-
+import { supabase } from '@/lib/supabase';
 export default function Generate() {
   const { user } = useUser();
   const { openSignIn } = useClerk();
@@ -415,7 +415,46 @@ The final result must look like a professional product cut-out used in VFX or e-
 
           // Update results incrementally so the user sees progress immediately
           setResults(prev => [...prev, { final: finalUrl }]);
-          
+          // ── Upload to Gallery (Supabase) ──
+(async () => {
+  try {
+    // حوّل الـ dataURL لـ Blob
+    const res  = await fetch(finalUrl);
+    const blob = await res.blob();
+
+    // اسم فريد للملف
+    const fileName = `generated-${Date.now()}-${Math.random().toString(36).slice(2)}.png`;
+    const filePath = `generated/${fileName}`;
+
+    // ارفع على Supabase Storage
+    const { error: uploadError } = await supabase.storage
+      .from('gallery')
+      .upload(filePath, blob, { contentType: 'image/png', upsert: false });
+
+    if (uploadError) throw uploadError;
+
+    // جيب الـ public URL
+    const { data: { publicUrl } } = supabase.storage
+      .from('gallery')
+      .getPublicUrl(filePath);
+
+    // حفظ في gallery_images table
+    await supabase.from('gallery_images').insert({
+      title:       prompt.split(' ').slice(0, 5).join(' ') + ' PNG',
+      description: prompt,
+      tags:        prompt.split(' ').filter(w => w.length > 3).slice(0, 6).map(w => w.toLowerCase().replace(/[^a-z0-9]/g, '')),
+      category:    'generated',
+      image_url:   publicUrl,
+      thumb_url:   publicUrl,
+      width:       1024,
+      height:      1024,
+      is_active:   true,
+    });
+  } catch (err) {
+    console.error('Gallery upload failed:', err);
+    // مش بيأثر على الـ generation — silent fail
+  }
+})();
           finishedCount++;
           if (currentBatchSize > 1) {
             setStatus(`Generating ${currentBatchSize} images...`);
