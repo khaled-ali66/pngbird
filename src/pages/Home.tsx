@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Image as ImageIcon, Wand2, CheckCircle2, XCircle, Maximize2, X, Zap, Lock, Menu, Bird } from 'lucide-react';
+import { Image as ImageIcon, Wand2, CheckCircle2, XCircle, Maximize2, X, Zap, Lock, Menu } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { PricingSection } from '../components/PricingSection';
 import { Header } from '../components/Header';
+import { Logo } from '../components/Logo';
 import { cn } from '@/lib/utils';
 
 export default function Home() {
@@ -12,15 +13,12 @@ export default function Home() {
 
   return (
     <div className="flex-1 overflow-y-auto bg-background text-foreground font-sans">
-      <div className="max-w-6xl mx-auto px-4 py-6 md:py-8 space-y-8 md:space-y-12">
+      <div className="max-w-6xl mx-auto px-4 py-4 md:py-6 space-y-6 md:space-y-8">
         
         {/* Hero Section */}
-        <section className="text-center space-y-6 md:space-y-8 pt-6 md:pt-8 relative">
+        <section className="text-center space-y-4 md:space-y-6 pt-4 md:pt-6 relative">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[600px] aspect-square bg-yellow-500/10 blur-[80px] md:blur-[120px] rounded-full pointer-events-none" />
           
-          <div className="inline-flex items-center justify-center p-3 md:p-4 bg-card rounded-2xl md:rounded-3xl mb-2 md:mb-4 border border-border shadow-2xl relative z-10">
-            <Bird className="w-8 h-8 md:w-12 md:h-12 text-yellow-500" />
-          </div>
           <h1 className="text-4xl md:text-7xl font-black tracking-tighter text-foreground relative z-10 leading-[1.1]">
             True Transparency. <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-500 to-yellow-300">
@@ -34,53 +32,44 @@ export default function Home() {
           
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4 md:pt-8 relative z-10">
             <Link to="/generate" className="w-full sm:w-auto">
-              <Button className="w-full h-12 md:h-14 px-8 bg-foreground text-background hover:bg-foreground/90 font-bold rounded-xl md:rounded-2xl text-base md:text-lg transition-all flex items-center justify-center gap-2">
+              <Button className="w-full h-12 md:h-14 px-8 bg-white text-black hover:bg-white/90 font-bold rounded-xl md:rounded-2xl text-base md:text-lg transition-all flex items-center justify-center gap-2">
                 <Wand2 className="w-5 h-5" />
                 Generate Image
               </Button>
             </Link>
-            <Link to="/remove-bg" className="w-full sm:w-auto">
-              <Button variant="outline" className="w-full h-12 md:h-14 px-8 border-border bg-card/50 hover:bg-card text-foreground font-bold rounded-xl md:rounded-2xl text-base md:text-lg transition-all flex items-center justify-center gap-2">
-                <ImageIcon className="w-5 h-5" />
-                Remove Background
-              </Button>
-            </Link>
+            <Button
+              className="w-full sm:w-auto h-12 md:h-14 px-8 bg-black text-white hover:bg-black/90 font-bold rounded-xl md:rounded-2xl text-base md:text-lg transition-all flex items-center justify-center gap-2"
+              onClick={() => document.getElementById('video-section')?.scrollIntoView({ behavior: 'smooth' })}
+            >
+              <ImageIcon className="w-5 h-5" />
+              Watch a demo
+            </Button>
           </div>
         </section>
 
         {/* Comparison Section */}
-        <section className="space-y-6 md:space-y-8 relative z-10">
-          <div className="text-center space-y-4 px-4">
-            <h2 className="text-2xl md:text-3xl font-bold text-foreground">The 
-pngLook Difference</h2>
-            <p className="text-muted-foreground max-w-xl mx-auto text-sm md:text-base">
-              Stop downloading "transparent" images that actually have a baked-in checkerboard pattern. 
-              Our AI extracts the true alpha channel.
-            </p>
-          </div>
+        <section className="space-y-4 md:space-y-6 relative z-10 pt-[5%]">
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 max-w-4xl mx-auto px-4">
-            {/* Fake PNG */}
+            {/* Others */}
             <div className="space-y-4">
               <div className="bg-card border border-border rounded-2xl md:rounded-3xl p-4 md:p-6 aspect-square flex flex-col items-center justify-center relative overflow-hidden">
-                <div className="absolute top-3 left-3 md:top-4 md:left-4 bg-red-500/20 text-red-500 border border-red-500/30 px-2 md:px-3 py-1 rounded-full text-[10px] md:text-xs font-bold flex items-center gap-1">
-                  <XCircle className="w-3 h-3" /> Fake PNG
+                <div className="absolute top-3 left-3 md:top-4 md:left-4 bg-red-500/20 text-red-500 border border-red-500/30 px-2 md:px-3 py-1 rounded-full text-[10px] md:text-xs font-bold flex items-center gap-1 z-20">
+                  <XCircle className="w-3 h-3" /> Others
                 </div>
-                <div className="w-48 h-48 md:w-64 md:h-64 relative shadow-2xl rounded-xl overflow-hidden"
+                <div className="w-48 h-48 md:w-64 md:h-64 relative shadow-2xl rounded-xl overflow-hidden scale-[138%]"
                      style={{
                        backgroundImage: 'conic-gradient(#ffffff 90deg, #e5e5e5 90deg 180deg, #ffffff 180deg 270deg, #e5e5e5 270deg)',
                        backgroundSize: '20px 20px'
                      }}>
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <Bird className="w-24 h-24 md:w-32 md:h-32 text-yellow-500 drop-shadow-xl" strokeWidth={1.5} />
+                    <img src="https://iili.io/BEWtGRI.jpg" alt="Others" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
                   </div>
                 </div>
               </div>
-              <p className="text-center text-xs md:text-sm text-muted-foreground font-medium">Other Tools: Baked-in checkerboard</p>
             </div>
 
-            {/* 
-pngLook AI */}
+            {/* PngLook AI */}
             <div className="space-y-4">
               <div className="bg-card border border-border rounded-2xl md:rounded-3xl p-4 md:p-6 aspect-square flex flex-col items-center justify-center relative overflow-hidden"
                    style={{
@@ -88,26 +77,22 @@ pngLook AI */}
                      backgroundSize: '20px 20px'
                    }}>
                 <div className="absolute top-3 left-3 md:top-4 md:left-4 bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 px-2 md:px-3 py-1 rounded-full text-[10px] md:text-xs font-bold flex items-center gap-1 z-20">
-                  <CheckCircle2 className="w-3 h-3" /> 
-pngLook AI
+                  <CheckCircle2 className="w-3 h-3" /> PngLook AI
                 </div>
-                <div className="w-48 h-48 md:w-64 md:h-64 relative z-10 flex items-center justify-center">
-                  <Bird className="w-24 h-24 md:w-32 md:h-32 text-yellow-500 drop-shadow-[0_0_30px_rgba(234,179,8,0.5)]" strokeWidth={1.5} />
+                <div className="w-48 h-48 md:w-64 md:h-64 relative z-10 flex items-center justify-center scale-[138%]">
+                  <img src="https://iili.io/BEWtt5B.png" alt="PngLook AI" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
                 </div>
               </div>
-              <p className="text-center text-xs md:text-sm text-muted-foreground font-medium">
-pngLook: True alpha transparency</p>
             </div>
           </div>
         </section>
 
         {/* Example Gallery Section */}
-        <section className="space-y-6 md:space-y-8 relative z-10 pb-8 md:pb-12">
+        <section className="space-y-4 md:space-y-6 relative z-10 pb-4 md:pb-8">
           <div className="text-center space-y-4 px-4">
             <h2 className="text-2xl md:text-3xl font-bold text-foreground">Real Examples</h2>
             <p className="text-muted-foreground max-w-xl mx-auto text-sm md:text-base">
               Our tool handles hair glow, motion blur, glass, smoke, and other fine details with precision.<br className="hidden sm:block" />
-              No halos, no artifacts just clean, true transparency.
             </p>
           </div>
 
@@ -151,14 +136,27 @@ pngLook: True alpha transparency</p>
         </section>
 
         {/* How it Works Section */}
-        <section className="py-8 md:py-12 relative z-10 border-t border-border/50">
+        <section className="py-2 md:py-4 relative z-10 border-t border-border/50">
           <div className="text-center space-y-4 mb-8 md:mb-12">
             <h2 className="text-2xl md:text-3xl font-bold text-foreground">How it Works</h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 max-w-5xl mx-auto px-4">
             <div className="flex flex-col items-center text-center space-y-4">
-              <div className="w-12 h-12 rounded-full bg-purple-500/10 text-purple-400 font-bold text-xl flex items-center justify-center mb-2">
-                1
+              <Link to="/api-keys" className="group flex flex-col items-center">
+                <div className="w-12 h-12 rounded-full bg-purple-500/10 text-purple-400 font-bold text-xl flex items-center justify-center mb-2 group-hover:bg-purple-500/20 group-hover:scale-105 transition-all">
+                  1
+                </div>
+                <h3 className="text-lg font-bold text-foreground group-hover:text-purple-400 transition-colors flex items-center gap-1">
+                  Get a key <span className="text-xs">↗</span>
+                </h3>
+              </Link>
+              <p className="text-muted-foreground text-sm">
+                Watch the video below for better understanding
+              </p>
+            </div>
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="w-12 h-12 rounded-full bg-blue-500/10 text-blue-400 font-bold text-xl flex items-center justify-center mb-2">
+                2
               </div>
               <h3 className="text-lg font-bold text-foreground">Upload/Generate</h3>
               <p className="text-muted-foreground text-sm">
@@ -166,21 +164,12 @@ pngLook: True alpha transparency</p>
               </p>
             </div>
             <div className="flex flex-col items-center text-center space-y-4">
-              <div className="w-12 h-12 rounded-full bg-blue-500/10 text-blue-400 font-bold text-xl flex items-center justify-center mb-2">
-                2
+              <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-400 font-bold text-xl flex items-center justify-center mb-2">
+                3
               </div>
               <h3 className="text-lg font-bold text-foreground">Auto Process</h3>
               <p className="text-muted-foreground text-sm">
                 Our AI removes the background
-              </p>
-            </div>
-            <div className="flex flex-col items-center text-center space-y-4">
-              <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-400 font-bold text-xl flex items-center justify-center mb-2">
-                3
-              </div>
-              <h3 className="text-lg font-bold text-foreground">Preview</h3>
-              <p className="text-muted-foreground text-sm">
-                Check the result in real-time
               </p>
             </div>
             <div className="flex flex-col items-center text-center space-y-4">
@@ -195,95 +184,73 @@ pngLook: True alpha transparency</p>
           </div>
         </section>
 
-        {/* Features Section */}
-        <section className="py-6 md:py-8 relative z-10 border-t border-border/50">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 md:gap-12 max-w-6xl mx-auto px-4">
-            <div className="flex flex-col items-center text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-purple-500/10 flex items-center justify-center mb-2">
-                <Zap className="w-8 h-8 text-purple-400" />
-              </div>
-              <h3 className="text-xl font-bold text-foreground">Lightning Fast</h3>
-              <p className="text-muted-foreground text-sm md:text-base">
-                Process your images in seconds with our advanced AI technology
-              </p>
-            </div>
-            <div className="flex flex-col items-center text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-blue-500/10 flex items-center justify-center mb-2">
-                <Lock className="w-8 h-8 text-blue-400" />
-              </div>
-              <h3 className="text-xl font-bold text-foreground">100% Free</h3>
-              <p className="text-muted-foreground text-sm md:text-base">
-                No hidden fees, no registration required. Just upload and download.
-              </p>
-            </div>
-            <div className="flex flex-col items-center text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-yellow-500/10 flex items-center justify-center mb-2">
-                <Wand2 className="w-8 h-8 text-yellow-400" />
-              </div>
-              <h3 className="text-xl font-bold text-foreground">Bring Your Own Key</h3>
-              <p className="text-muted-foreground text-sm md:text-base">
-                Power your generations using top-tier AI models with your own API keys.
-              </p>
-            </div>
-            <div className="flex flex-col items-center text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mb-2">
-                <ImageIcon className="w-8 h-8 text-emerald-400" />
-              </div>
-              <h3 className="text-xl font-bold text-foreground">High Quality</h3>
-              <p className="text-muted-foreground text-sm md:text-base">
-                Download high-resolution results without quality loss
-              </p>
+        {/* Video Section */}
+        <section id="video-section" className="py-2 md:py-4 relative z-10 border-t border-border/50">
+          <div className="max-w-5xl mx-auto px-4">
+            <div className="bg-card border border-border rounded-3xl overflow-hidden shadow-2xl">
+              <div 
+                style={{ position: 'relative', paddingBottom: '56.25%', height: 0 }}
+                dangerouslySetInnerHTML={{ __html: '<iframe id="js_video_iframe" src="https://jumpshare.com/embed/92kPYrK19B2F4sO3w56p" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe>' }}
+              />
             </div>
           </div>
         </section>
 
         {/* Pricing Section */}
-        <section id="pricing" className="py-6 md:py-8 relative z-10 border-t border-border/50">
+        <section id="pricing" className="pt-[10%] pb-2 md:pb-4 relative z-10 border-t border-border/50">
           <PricingSection />
         </section>
 
         {/* FAQs Section */}
-        <section className="py-12 md:py-16 relative z-10 border-t border-border/50">
+        <section className="py-6 md:py-8 relative z-10 border-t border-border/50">
           <div className="max-w-6xl mx-auto px-4">
             <div className="text-center space-y-4 mb-12">
               <h2 className="text-3xl md:text-4xl font-bold text-foreground">Frequently Asked Questions</h2>
-              <p className="text-muted-foreground text-lg max-w-2xl mx-auto">Everything you need to know about 
-pngLook.</p>
+              <p className="text-muted-foreground text-lg max-w-2xl mx-auto">Everything you need to know about PngLook.</p>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
               {[
                 {
-                  q: "What's the difference between Free and Premium?",
-                  a: "Currently, all users get unlimited generations and background removals to test the service. Premium users (Pro/Ultimate) get additional features like batch processing and high-resolution 4K output."
+                  q: "How to use the tool?",
+                  a: <>You can use the tool in 4 simple steps: 1. Add your <Link to="/api-keys" className="text-foreground hover:underline font-bold">API key</Link> (watch the tutorial). 2. Start generating PNG images. 3. The AI removes the background automatically. 4. Download your image and enjoy.</>
                 },
                 {
-                  q: "How does the payment work?",
-                  a: "We offer a simple one-time payment model for our premium licenses—no recurring subscriptions. All payments are securely processed through our Merchant of Record, Paddle.com, which supports various payment methods globally."
+                  q: "Do you provide refunds?",
+                  a: <>Yes, we provide refunds. Please read our <Link to="/refund-policy" className="text-foreground hover:underline font-bold">refund policy</Link> for more details.</>
                 },
                 {
-                  q: "What is the 'Bring Your Own Key' (BYOK) model?",
-                  a: "To keep our core platform free, we allow you to connect your own Google Gemini API key for advanced features. This means you can use your own free or paid key to bypass any future limits."
+                  q: "How much does it cost to generate images?",
+                  a: "The cost depends on the provider and the model you use. For example, with OpenAI’s DALL·E, generating one image usually costs around $0.02–$0.04, depending on the resolution. PngLook does not add any extra fees. Please check the official pricing of each provider for exact details."
                 },
                 {
-                  q: "Are my images and API keys secure?",
-                  a: "Yes. Your API keys are stored locally in your browser's storage or securely in your profile. Image processing requests are sent directly from your browser to the respective API providers."
+                  q: "Is my API key secure?",
+                  a: "Yes, your API key is stored securely in your browser (local storage) or your profile. It is never sent to our servers, so your data stays private."
                 },
                 {
-                  q: "Where is my image history saved?",
-                  a: "Your generated and processed images are saved locally in your browser's history for your privacy and convenience. We do not store your images on our servers. You can easily clear your local history at any time."
+                  q: "Is there a limit on image generation?",
+                  a: "We offer generous limits for Free users to try the tool. Premium plans have unlimited generations and faster processing."
                 },
                 {
-                  q: "What image formats do you support?",
-                  a: "We currently support uploading standard image formats including JPG, JPEG, PNG, and WEBP. All processed images with removed backgrounds are downloaded as high-quality PNG files to preserve the transparency."
+                  q: "Do I need to create an account?",
+                  a: "No, you do not need to create an account. You can start using PngLook right away."
                 }
               ].map((faq, i) => (
                 <div key={i} className="bg-card/50 border border-border/50 rounded-2xl p-6 md:p-8 hover:bg-card transition-colors">
                   <h3 className="text-lg md:text-xl font-bold text-foreground mb-3">{faq.q}</h3>
-                  <p className="text-muted-foreground text-sm md:text-base leading-relaxed">{faq.a}</p>
+                  <div className="text-muted-foreground text-sm md:text-base leading-relaxed whitespace-pre-line">{faq.a}</div>
                 </div>
               ))}
             </div>
+          </div>
+        </section>
+
+        {/* Contact Section */}
+        <section className="py-4 md:py-6 relative z-10 text-center px-4">
+          <div className="max-w-6xl mx-auto border border-border rounded-3xl p-4 md:p-6">
+            <p className="text-sm md:text-base text-muted-foreground">
+              Still have a Question? We are here to help. <Link to="/contact" className="text-foreground font-bold hover:underline">Contact us.</Link>
+            </p>
           </div>
         </section>
 
