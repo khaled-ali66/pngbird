@@ -13,8 +13,7 @@ interface DemoCheckoutModalProps {
   plan: {
     id: string;
     name: string;
-   discountPrice: string;
-originalPrice: string;
+    price: string;
   } | null;
 }
 
@@ -236,7 +235,7 @@ export function DemoCheckoutModal({ isOpen, onClose, plan }: DemoCheckoutModalPr
           <h2 className="text-lg font-semibold text-foreground mb-4 sm:mb-6">Order summary</h2>
           
           <div className="text-3xl sm:text-4xl font-bold text-foreground mb-6 sm:mb-8">
-            {plan.discountPrice}
+            {plan.price}
           </div>
 
           <div className="flex items-center gap-4 mb-8">
@@ -244,7 +243,7 @@ export function DemoCheckoutModal({ isOpen, onClose, plan }: DemoCheckoutModalPr
               <ShieldCheck className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h3 className="font-semibold text-foreground">PngBird {plan.name} License</h3>
+              <h3 className="font-semibold text-foreground">PngLook {plan.name} License</h3>
               <p className="text-sm text-muted-foreground">Lifetime access + updates</p>
             </div>
           </div>
@@ -252,7 +251,7 @@ export function DemoCheckoutModal({ isOpen, onClose, plan }: DemoCheckoutModalPr
           <div className="space-y-4 text-sm">
             <div className="flex justify-between text-foreground">
               <span>Subtotal</span>
-              <span className="font-medium">{plan.discountPrice}</span>
+              <span className="font-medium">{plan.price}</span>
             </div>
             <div className="flex justify-between text-muted-foreground">
               <span>VAT</span>
@@ -260,7 +259,7 @@ export function DemoCheckoutModal({ isOpen, onClose, plan }: DemoCheckoutModalPr
             </div>
             <div className="pt-4 border-t border-border flex justify-between text-foreground font-bold text-lg">
               <span>Total</span>
-              <span>{plan.discountPrice}</span>
+              <span>{plan.price}</span>
             </div>
           </div>
         </div>
@@ -324,7 +323,7 @@ export function DemoCheckoutModal({ isOpen, onClose, plan }: DemoCheckoutModalPr
                 <div className="flex items-start gap-3 mt-6">
                   <input type="checkbox" id="marketing" className="mt-1" />
                   <label htmlFor="marketing" className="text-sm text-muted-foreground leading-tight">
-                    PngBird may send me product updates and offers via email. It is possible to opt-out at any time.
+                    PngLook may send me product updates and offers via email. It is possible to opt-out at any time.
                   </label>
                 </div>
 
