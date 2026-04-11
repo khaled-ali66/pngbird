@@ -4,6 +4,7 @@ import { Download, ChevronRight, Tag, ArrowLeft, Wand2, Share2, Check, Info, Loa
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
 
 const API_KEY    = import.meta.env.VITE_PIXABAY_KEY || '';
 const SITE_URL   = import.meta.env.VITE_SITE_URL   || 'https://pngbird.com';
@@ -23,9 +24,6 @@ interface GalleryImage {
   downloadCount: number;
 }
 
-// ─────────────────────────────────────────────
-// وصف ذكي بناءً على الـ tags الفعلية للصورة
-// ─────────────────────────────────────────────
 function buildDescription(tags: string[], width: number, height: number): string {
   if (!tags.length) return 'Free transparent PNG image available for personal and commercial use.';
 
@@ -81,23 +79,18 @@ function buildDescription(tags: string[], width: number, height: number): string
   return sentences.join(' ');
 }
 
-// ─────────────────────────────────────────────
-// SEO HELPER — يضبط كل الـ meta tags دفعة واحدة
-// ─────────────────────────────────────────────
 function updateSEO(image: GalleryImage) {
   const pageUrl     = `${SITE_URL}/gallery/${image.slug}`;
   const title       = `${image.title} - Free Transparent PNG | ${SITE_NAME}`;
   const description = image.description.slice(0, 160);
   const keywords    = [...image.tags, 'transparent png', 'free png', 'no background', 'png download'].join(', ');
 
-  // ── Title
   document.title = title;
 
   const set = (selector: string, attr: string, value: string) => {
     let el = document.querySelector(selector) as HTMLMetaElement | HTMLLinkElement | null;
     if (!el) {
       el = document.createElement(selector.startsWith('link') ? 'link' : 'meta') as any;
-      // parse attributes from selector e.g. meta[name="description"]
       const match = selector.match(/\[(.+?)="(.+?)"\]/);
       if (match) (el as any)[match[1]] = match[2];
       document.head.appendChild(el);
@@ -105,35 +98,30 @@ function updateSEO(image: GalleryImage) {
     (el as any)[attr] = value;
   };
 
-  // ── Standard meta
-  set('meta[name="description"]',        'content', description);
-  set('meta[name="keywords"]',           'content', keywords);
-  set('meta[name="robots"]',             'content', 'index, follow');
+  set('meta[name="description"]',         'content', description);
+  set('meta[name="keywords"]',            'content', keywords);
+  set('meta[name="robots"]',              'content', 'index, follow');
 
-  // ── Canonical
   let canonical = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
   if (!canonical) { canonical = document.createElement('link'); canonical.rel = 'canonical'; document.head.appendChild(canonical); }
   canonical.href = pageUrl;
 
-  // ── Open Graph
-  set('meta[property="og:type"]',        'content', 'article');
-  set('meta[property="og:site_name"]',   'content', SITE_NAME);
-  set('meta[property="og:url"]',         'content', pageUrl);
-  set('meta[property="og:title"]',       'content', title);
-  set('meta[property="og:description"]', 'content', description);
-  set('meta[property="og:image"]',       'content', image.imageUrl);
-  set('meta[property="og:image:width"]', 'content', String(image.width));
-  set('meta[property="og:image:height"]','content', String(image.height));
-  set('meta[property="og:image:alt"]',   'content', image.title);
+  set('meta[property="og:type"]',         'content', 'article');
+  set('meta[property="og:site_name"]',    'content', SITE_NAME);
+  set('meta[property="og:url"]',          'content', pageUrl);
+  set('meta[property="og:title"]',        'content', title);
+  set('meta[property="og:description"]',  'content', description);
+  set('meta[property="og:image"]',        'content', image.imageUrl);
+  set('meta[property="og:image:width"]',  'content', String(image.width));
+  set('meta[property="og:image:height"]', 'content', String(image.height));
+  set('meta[property="og:image:alt"]',    'content', image.title);
 
-  // ── Twitter Card
   set('meta[name="twitter:card"]',        'content', 'summary_large_image');
   set('meta[name="twitter:title"]',       'content', title);
   set('meta[name="twitter:description"]', 'content', description);
   set('meta[name="twitter:image"]',       'content', image.imageUrl);
   set('meta[name="twitter:image:alt"]',   'content', image.title);
 
-  // ── JSON-LD Schema
   let jsonLd = document.getElementById('gallery-jsonld');
   if (!jsonLd) {
     jsonLd = document.createElement('script');
@@ -158,7 +146,6 @@ function updateSEO(image: GalleryImage) {
     acquireLicensePage: pageUrl,
     creditText:  SITE_NAME,
     copyrightNotice: `Free to use — ${SITE_NAME}`,
-    // Breadcrumb
     mainEntityOfPage: {
       '@type': 'BreadcrumbList',
       itemListElement: [
@@ -171,9 +158,6 @@ function updateSEO(image: GalleryImage) {
   });
 }
 
-// ─────────────────────────────────────────────
-// FETCH HELPERS
-// ─────────────────────────────────────────────
 function hitToImage(hit: any): GalleryImage {
   const tags     = hit.tags ? hit.tags.split(',').map((t: string) => t.trim().toLowerCase()).filter(Boolean) : [];
   const firstTag = tags[0] || 'png';
@@ -206,6 +190,7 @@ async function fetchImageById(pixabayId: string): Promise<GalleryImage | null> {
   } catch { return null; }
 }
 
+// ✅ per_page=6 بدل 20 — الـ response أصغر بكتير
 async function fetchRelated(tags: string[], excludeId: string): Promise<GalleryImage[]> {
   try {
     const params = new URLSearchParams({
@@ -214,14 +199,17 @@ async function fetchRelated(tags: string[], excludeId: string): Promise<GalleryI
       image_type: 'photo',
       colors:     'transparent',
       safesearch: 'true',
-      per_page:   '20',
+      per_page:   '6',
       page:       '1',
       order:      'popular',
     });
     const res  = await fetch(`https://pixabay.com/api/?${params}`);
     if (!res.ok) return [];
     const data = await res.json();
-    return (data.hits || []).filter((h: any) => `px-${h.id}` !== excludeId).slice(0, 6).map(hitToImage);
+    return (data.hits || [])
+      .filter((h: any) => `px-${h.id}` !== excludeId)
+      .slice(0, 6)
+      .map(hitToImage);
   } catch { return []; }
 }
 
@@ -244,12 +232,18 @@ function CheckerBg() {
   );
 }
 
-// ─────────────────────────────────────────────
-// MAIN PAGE
-// ─────────────────────────────────────────────
+// UUID = آخر 36 حرف من الـ slug
+function extractSupabaseId(slug: string): string {
+  return slug.slice(-36);
+}
+
 export default function GalleryDetail() {
   const { id }   = useParams<{ id: string }>();
   const navigate = useNavigate();
+
+  const isSupabase = id?.startsWith('sb-') ?? false;
+  const supabaseId = isSupabase ? extractSupabaseId(id!) : '';
+  const pixabayId  = !isSupabase ? (id?.split('-').pop() || '') : '';
 
   const [image,     setImage]     = useState<GalleryImage | null>(null);
   const [related,   setRelated]   = useState<GalleryImage[]>([]);
@@ -257,26 +251,57 @@ export default function GalleryDetail() {
   const [imgLoaded, setImgLoaded] = useState(false);
   const [copied,    setCopied]    = useState(false);
 
-  const pixabayId = id?.split('-').pop() || '';
-
   useEffect(() => {
-    if (!API_KEY || !pixabayId) { setLoading(false); return; }
+    if (!id) { setLoading(false); return; }
+
     setLoading(true);
     setImage(null);
     setRelated([]);
     setImgLoaded(false);
 
+    // ✅ من Supabase
+    if (isSupabase) {
+      supabase
+        .from('gallery_images')
+        .select('*')
+        .eq('id', supabaseId)
+        .single()
+        .then(({ data, error }) => {
+          if (error || !data) { setLoading(false); return; }
+          const img: GalleryImage = {
+            id:            `sb-${data.id}`,
+            slug:          id!,
+            title:         data.title,
+            description:   data.description || buildDescription(data.tags || [], data.width || 800, data.height || 800),
+            tags:          data.tags || [],
+            category:      data.category,
+            imageUrl:      data.image_url,
+            thumbUrl:      data.thumb_url || data.image_url,
+            width:         data.width  || 800,
+            height:        data.height || 800,
+            downloadCount: 0,
+          };
+          setImage(img);
+          updateSEO(img);
+          setLoading(false); // ✅ الصفحة تظهر فوراً — الـ related تيجي بعدين
+          if (img.tags?.length) fetchRelated(img.tags.slice(0, 2), img.id).then(setRelated);
+        });
+      return;
+    }
+
+    // ✅ من Pixabay
+    if (!API_KEY || !pixabayId) { setLoading(false); return; }
+
     fetchImageById(pixabayId).then(img => {
+      setLoading(false); // ✅ الصفحة تظهر فوراً
       setImage(img);
-      setLoading(false);
       if (img) {
-        updateSEO(img); // ← كل الـ SEO في call واحدة
+        updateSEO(img);
         if (img.tags?.length) fetchRelated(img.tags.slice(0, 2), img.id).then(setRelated);
       }
     });
-  }, [id, pixabayId]);
+  }, [id]);
 
-  // cleanup canonical لما المستخدم يمشي من الصفحة
   useEffect(() => {
     return () => {
       const canonical = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
@@ -284,28 +309,27 @@ export default function GalleryDetail() {
     };
   }, []);
 
- const handleDownload = async () => {
-  if (!image) return;
-  try {
-    const response = await fetch(image.imageUrl);
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${image.slug}.png`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success('Download started!');
-  } catch {
-    // fallback لو الـ fetch فشل
-    const a = document.createElement('a');
-    a.href = image.imageUrl;
-    a.download = `${image.slug}.png`;
-    a.target = '_blank';
-    a.click();
-    toast.success('Download started!');
-  }
-};
+  const handleDownload = async () => {
+    if (!image) return;
+    try {
+      const response = await fetch(image.imageUrl);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${image.slug}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Download started!');
+    } catch {
+      const a = document.createElement('a');
+      a.href = image.imageUrl;
+      a.download = `${image.slug}.png`;
+      a.target = '_blank';
+      a.click();
+      toast.success('Download started!');
+    }
+  };
 
   const handleShare = async () => {
     const url = window.location.href;
@@ -324,7 +348,7 @@ export default function GalleryDetail() {
     </div>
   );
 
-  if (!API_KEY) return (
+  if (!API_KEY && !isSupabase) return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 px-4 text-center">
       <span className="text-4xl">🔑</span>
       <h1 className="text-xl font-bold">API Key Required</h1>
@@ -348,7 +372,6 @@ export default function GalleryDetail() {
     <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-4 py-8">
 
-        {/* Breadcrumb */}
         <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-muted-foreground mb-8">
           <Link to="/" className="hover:text-foreground transition-colors">Home</Link>
           <ChevronRight className="w-3 h-3" />
@@ -435,7 +458,6 @@ export default function GalleryDetail() {
           <aside className="space-y-5">
             <div>
               <h1 className="text-2xl font-bold text-foreground leading-tight mb-2">{image.title}</h1>
-             
             </div>
 
             <div>
@@ -473,8 +495,6 @@ export default function GalleryDetail() {
                 </div>
               ))}
             </div>
-
-            
 
             <div className="rounded-2xl border border-yellow-500/20 bg-gradient-to-br from-yellow-500/10 to-transparent p-5 text-center">
               <p className="text-sm font-semibold text-foreground mb-1">Need something custom?</p>

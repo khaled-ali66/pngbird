@@ -66,7 +66,7 @@ const CATEGORIES = [
   { id: 'christmas',  label: 'Christmas',  icon: '🎄', queries: ['christmas transparent', 'holiday png', 'xmas cutout'] },
 ];
 
-const POPULAR_TAGS = ['Easter', 'Spring', "St. Patrick's Day", 'Eid Al Fitr', 'eid mubarak', 'idul fitri', 'location', 'coffee'];
+const POPULAR_TAGS = ['Easter', 'Spring', "St. Patrick's Day", 'Eid Al Fitr', 'idul fitri', 'location', 'coffee'];
 
 const CAT_LIST        = CATEGORIES.filter(c => c.id !== 'all');
 const PAGE_SIZE       = 40;
@@ -88,7 +88,7 @@ async function fetchSupabaseImages(category?: string, search?: string): Promise<
     if (error) return [];
     return (data || []).map(row => ({
       id: `sb-${row.id}`,
-      slug: `${row.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}-${row.id.slice(0, 8)}`,
+     slug: `sb-${row.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}-${row.id}`,
       title: row.title,
       description: row.description || `Free transparent ${row.title} PNG.`,
       tags: row.tags || [],
@@ -491,13 +491,13 @@ export default function Gallery() {
 
   const totalPages   = Math.ceil(totalHits / PAGE_SIZE);
   const activeCatObj = CATEGORIES.find(c => c.id === activeCategory);
-  const showHero = !searchQuery && currentPage === 1;
+ const showHero = currentPage === 1;
 
   return (
     <div className="min-h-screen bg-background">
 
       {showHero ? (
-        <div className="relative overflow-hidden bg-background">
+        <div className="min-h-[90vh] relative overflow-hidden bg-background">
           <div
             className="absolute inset-0 pointer-events-none"
             aria-hidden
@@ -539,7 +539,7 @@ export default function Gallery() {
               )}
             </form>
 
-            <div className="flex flex-wrap justify-center gap-2">
+            {/* <div className="flex flex-wrap justify-center gap-2">
               {POPULAR_TAGS.map(tag => (
                 <button
                   key={tag}
@@ -549,7 +549,7 @@ export default function Gallery() {
                   {tag}
                 </button>
               ))}
-            </div>
+            </div> */}
           </div>
         </div>
       ) : (
